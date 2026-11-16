@@ -1,7 +1,7 @@
 {
  "name": "모양 놀이터",
  "short_name": "모양 놀이터",
- "description": "상자·둥근 기둥·공 모양을 찾고 나누는 3·4학년 도형 놀이",
+ "description": "상자·둥근 기둥·공 모양을 찾고 나누는 도형 놀이",
  "lang": "ko",
  "start_url": "./",
  "scope": "./",
