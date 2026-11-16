@@ -2,8 +2,16 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>모양 놀이터</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#fff8ec">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="모양 놀이터">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icons/favicon.png">
 <meta name="description" content="상자 모양·둥근 기둥 모양·공 모양을 찾고 구별하는 3·4학년 도형 놀이">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
@@ -17,9 +25,13 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%}
 body{background:var(--bg);color:var(--ink);font-family:"Jua","Malgun Gothic",sans-serif;
-  overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:manipulation}
-button{font-family:inherit;color:inherit;border:0;cursor:pointer}
-.screen{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;padding:16px}
+  overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:manipulation;
+  overscroll-behavior:none;-webkit-touch-callout:none;-webkit-text-size-adjust:100%;position:fixed;inset:0}
+button{font-family:inherit;color:inherit;border:0;cursor:pointer;-webkit-touch-callout:none}
+.screen{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;
+  padding:max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+.fs{position:absolute;top:max(14px,env(safe-area-inset-top));right:max(14px,env(safe-area-inset-right));width:auto;padding:0 18px;border-radius:30px;font-size:20px;font-family:"Jua",sans-serif;gap:6px;display:flex}
+.fs[hidden]{display:none}
 .screen.on{display:flex}
 
 /* home */
@@ -113,6 +125,7 @@ button{font-family:inherit;color:inherit;border:0;cursor:pointer}
 
 <!-- 첫 화면 -->
 <section id="home" class="screen on">
+  <button class="round fs" id="fsBtn" aria-label="전체 화면">⛶ 전체 화면</button>
   <div class="shapes-row" aria-hidden="true">
     <svg viewBox="0 0 100 100"><use href="#i-box"/></svg>
     <svg viewBox="0 0 100 100"><use href="#i-cyl"/></svg>
@@ -186,18 +199,38 @@ const josa = (w,a,b) => ((w.charCodeAt(w.length-1)-0xAC00)%28 ? w+a : w+b);
 // 대사: audio/*.mp3 (Microsoft 신경망 음성으로 미리 녹음). 파일이 없으면 브라우저 음성으로 대신 읽어요.
 let LINES = {};
 fetch("lines.json").then(r=>r.json()).then(j=>LINES=j).catch(()=>{});
-const cache = {};
+// 태블릿(특히 아이패드)에서도 끊김 없이 이어 말하도록 Web Audio로 재생해요.
+let actx;
+function ctx(){
+  if(!actx) actx = new (window.AudioContext||window.webkitAudioContext)();
+  if(actx.state !== "running") actx.resume().catch(()=>{});
+  return actx;
+}
+try{ if(navigator.audioSession) navigator.audioSession.type = "playback"; }catch(e){} // 아이패드 무음 스위치가 켜져 있어도 소리가 나게
+const bufs = {};
+function clip(k){
+  return bufs[k] || (bufs[k] = fetch("audio/"+k+".mp3")
+    .then(r=>{ if(!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+    .then(a=>new Promise((res,rej)=>ctx().decodeAudioData(a,res,rej)))
+    .catch(e=>{ delete bufs[k]; throw e; }));
+}
 let queueId = 0, current = null, lastSay = [];
-function clip(k){ return cache[k] || (cache[k] = Object.assign(new Audio("audio/"+k+".mp3"),{preload:"auto"})); }
-function stopVoice(){ queueId++; if(current){current.pause();current.currentTime=0;current=null;} try{speechSynthesis.cancel()}catch(e){} }
+function stopVoice(){
+  queueId++;
+  if(current){ const c=current; current=null; c.src.onended=null; try{c.src.stop()}catch(e){} c.res(); }
+  try{speechSynthesis.cancel()}catch(e){}
+}
 function playOne(k, id){
-  return new Promise(res=>{
+  return new Promise(async res=>{
     if(id!==queueId) return res();
-    const a = clip(k); current = a; a.currentTime = 0;
-    const done = () => { a.onended=a.onerror=null; res(); };
-    a.onended = done;
-    a.onerror = () => { a.onerror=null; fallback(k).then(res); };
-    a.play().catch(() => fallback(k).then(res));
+    let b;
+    try{ b = await clip(k); }catch(e){ return fallback(k).then(res); }
+    if(id!==queueId) return res();
+    const c = ctx(), src = c.createBufferSource();
+    src.buffer = b; src.connect(c.destination);
+    const me = {src, res}; current = me;
+    src.onended = () => { if(current===me) current=null; res(); };
+    src.start();
   });
 }
 function fallback(k){
@@ -215,11 +248,9 @@ async function say(keys, remember=false){
 }
 document.addEventListener("click", e=>{ if(e.target.closest("[data-replay]")) say(lastSay); });
 
-let actx;
 function tone(seq){
   try{
-    actx = actx || new (window.AudioContext||window.webkitAudioContext)();
-    let t = actx.currentTime;
+    ctx(); let t = actx.currentTime;
     for(const [f,d,type="sine",v=.18] of seq){
       const o=actx.createOscillator(), g=actx.createGain();
       o.type=type; o.frequency.value=f; g.gain.setValueAtTime(v,t); g.gain.exponentialRampToValueAtTime(.001,t+d);
@@ -374,16 +405,37 @@ function basketAt(x,y){
   return [...document.querySelectorAll(".basket")].find(b=>{const r=b.getBoundingClientRect();return x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom;});
 }
 
-// 첫 터치에서 소리 준비 + 인사
+// 첫 터치에서 소리 켜기(태블릿은 터치해야 소리가 나요) + 인사
 let greeted = false;
-document.addEventListener("pointerdown", e=>{
+function unlock(e){
+  const c = ctx();
+  try{ const s=c.createBufferSource(); s.buffer=c.createBuffer(1,1,22050); s.connect(c.destination); s.start(); }catch(_){}
   if(greeted) return; greeted = true;
-  if(e.target.closest(".mode")) return;
+  Object.keys(LINES).forEach(k=>clip(k).catch(()=>{}));
+  if(e.target.closest(".mode,.fs")) return;
   if(!$("#home").classList.contains("on")) return;
   say(["intro"], true);
-}, {once:false, capture:true});
+}
+["pointerdown","touchend","click"].forEach(t=>document.addEventListener(t, unlock, {capture:true}));
+// 길게 누를 때 뜨는 메뉴·확대 막기
+document.addEventListener("contextmenu", e=>e.preventDefault());
+document.addEventListener("gesturestart", e=>e.preventDefault());
+document.addEventListener("dblclick", e=>e.preventDefault(), {passive:false});
 // 미리 불러오기
-setTimeout(()=>{ ["intro","find_intro","sort_intro","good1","good2","good3","good4","wrong1","wrong2","wrong3"].forEach(clip); }, 300);
+setTimeout(()=>{ ["intro","find_intro","sort_intro","good1","good2","good3","good4","wrong1","wrong2","wrong3"].forEach(k=>clip(k).catch(()=>{})); }, 300);
+
+// 전체 화면 버튼 (앱으로 설치해 열면 숨김)
+const fsBtn = $("#fsBtn"), root = document.documentElement;
+const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+if(standalone || !(root.requestFullscreen || root.webkitRequestFullscreen)) fsBtn.hidden = true;
+fsBtn.onclick = () => {
+  const on = document.fullscreenElement || document.webkitFullscreenElement;
+  if(on) (document.exitFullscreen||document.webkitExitFullscreen).call(document);
+  else (root.requestFullscreen||root.webkitRequestFullscreen).call(root);
+};
+
+// 오프라인에서도 쓰도록 저장
+if("serviceWorker" in navigator) addEventListener("load", ()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 </script>
 </body>
 </html>
