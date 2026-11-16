@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>모양 놀이터</title>
+<meta name="description" content="상자 모양·둥근 기둥 모양·공 모양을 찾고 구별하는 3·4학년 도형 놀이">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Jua&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fff8ec; --card:#ffffff; --ink:#3b2f2a; --soft:#8a7a70;
+  --box:#ff9f43; --box-l:#ffe3c4; --cyl:#3d9be9; --cyl-l:#d4e9fb; --ball:#2ecc71; --ball-l:#d2f5e1;
+  --ok:#e74c3c; --shadow:0 6px 0 rgba(0,0,0,.08), 0 10px 24px rgba(0,0,0,.08);
+  --emoji:"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font-family:"Jua","Malgun Gothic",sans-serif;
+  overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+button{font-family:inherit;color:inherit;border:0;cursor:pointer}
+.screen{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;padding:16px}
+.screen.on{display:flex}
+
+/* home */
+#home{justify-content:center;gap:4vh;text-align:center}
+#home h1{font-size:clamp(40px,8vw,84px);margin:0;letter-spacing:2px}
+#home h1 span{display:inline-block;animation:bob 2s ease-in-out infinite}
+#home h1 span:nth-child(2){animation-delay:.2s}#home h1 span:nth-child(3){animation-delay:.4s}
+#home p{margin:0;font-size:clamp(18px,3vw,28px);color:var(--soft)}
+.shapes-row{display:flex;gap:4vw;justify-content:center}
+.shapes-row svg{width:clamp(70px,13vw,140px);height:auto;animation:bob 2.4s ease-in-out infinite}
+.shapes-row svg:nth-child(2){animation-delay:.3s}.shapes-row svg:nth-child(3){animation-delay:.6s}
+.modes{display:flex;gap:3vw;flex-wrap:wrap;justify-content:center}
+.mode{background:var(--card);border-radius:28px;padding:22px 34px;box-shadow:var(--shadow);
+  font-size:clamp(24px,4vw,40px);min-width:min(80vw,320px);transition:transform .1s}
+.mode small{display:block;font-size:.55em;color:var(--soft);margin-top:6px}
+.mode:active{transform:scale(.96)}
+.mode.find{border:5px solid #f6c445}.mode.sort{border:5px solid #b98cf0}
+
+/* top bar */
+.bar{width:100%;display:flex;align-items:center;gap:10px;max-width:1100px}
+.round{width:60px;height:60px;border-radius:50%;background:var(--card);box-shadow:var(--shadow);font-size:30px;
+  display:grid;place-items:center;font-family:var(--emoji);flex:none}
+.round:active{transform:scale(.92)}
+.stars{flex:1;display:flex;justify-content:center;gap:4px;flex-wrap:wrap;font-size:clamp(18px,3vw,30px);font-family:var(--emoji)}
+.stars i{font-style:normal;opacity:.22;filter:grayscale(1);transition:.3s}
+.stars i.got{opacity:1;filter:none;transform:scale(1.15)}
+
+.prompt{font-size:clamp(28px,5.4vw,56px);margin:2vh 0 1vh;text-align:center;line-height:1.2}
+.prompt b{padding:0 .25em;border-radius:14px}
+.c-box{background:var(--box-l);color:#c0620a}.c-cyl{background:var(--cyl-l);color:#1f6fb4}.c-ball{background:var(--ball-l);color:#1b8a4a}
+
+/* find mode */
+.grid{flex:1;width:100%;max-width:1000px;display:grid;grid-template-columns:repeat(2,1fr);gap:2.4vmin;padding:1vmin 0 2vmin}
+@media (min-aspect-ratio:4/3){.grid{grid-template-columns:repeat(4,1fr);align-content:center}}
+.pick{position:relative;background:var(--card);border-radius:28px;box-shadow:var(--shadow);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:1vmin;min-height:0;padding:2vmin;transition:transform .12s}
+@media (min-aspect-ratio:4/3){.pick{aspect-ratio:3/4}}
+.pick:active{transform:scale(.96)}
+.pick .em{font-family:var(--emoji);font-size:clamp(56px,13vmin,130px);line-height:1}
+.pick .nm{font-size:clamp(18px,3.4vmin,32px)}
+.pick .mark{position:absolute;inset:8%;border:12px solid var(--ok);border-radius:50%;opacity:0;transform:scale(1.6);pointer-events:none}
+.pick.right .mark{animation:stamp .35s cubic-bezier(.2,1.6,.4,1) forwards}
+.pick.dim{opacity:.35}
+
+/* sort mode */
+.stage{flex:1;width:100%;max-width:1100px;display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:1vh;min-height:0}
+.item{background:var(--card);border-radius:32px;box-shadow:var(--shadow);padding:2vmin 5vmin;display:flex;flex-direction:column;
+  align-items:center;touch-action:none;cursor:grab;position:relative;z-index:5}
+.item .em{font-family:var(--emoji);font-size:clamp(80px,20vmin,190px);line-height:1.05;pointer-events:none}
+.item .nm{font-size:clamp(22px,4vmin,40px);pointer-events:none}
+.item.drag{cursor:grabbing;transition:none;box-shadow:0 20px 40px rgba(0,0,0,.2)}
+.item.back{transition:transform .3s}
+.hint{color:var(--soft);font-size:clamp(16px,2.6vmin,24px);margin:0}
+.baskets{width:100%;display:grid;grid-template-columns:repeat(3,1fr);gap:2vmin;padding-bottom:1vh}
+.basket{border-radius:30px;padding:1.6vmin 1vmin 1.2vmin;display:flex;flex-direction:column;align-items:center;gap:.6vmin;
+  box-shadow:var(--shadow);border:5px solid transparent;transition:transform .12s, border-color .2s}
+.basket svg{width:clamp(54px,11vmin,110px);height:auto}
+.basket .lb{font-size:clamp(18px,3.4vmin,34px)}
+.basket .in{min-height:1.3em;font-family:var(--emoji);font-size:clamp(18px,3.4vmin,32px);line-height:1.2;display:flex;flex-wrap:wrap;justify-content:center}
+.basket[data-s=box]{background:var(--box-l)}.basket[data-s=cyl]{background:var(--cyl-l)}.basket[data-s=ball]{background:var(--ball-l)}
+.basket.over{transform:scale(1.05);border-color:var(--ink)}
+.basket:active{transform:scale(.97)}
+
+.shake{animation:shake .45s}
+.glow{animation:glow 1s ease-in-out infinite}
+
+/* end */
+#end{justify-content:center;gap:3vh;text-align:center}
+#end .big{font-size:clamp(110px,26vmin,240px);font-family:var(--emoji);animation:pop .7s cubic-bezier(.2,1.6,.4,1)}
+#end h2{font-size:clamp(34px,7vw,70px);margin:0}
+.confetti{position:fixed;top:-40px;font-family:var(--emoji);pointer-events:none;animation:fall linear forwards;z-index:9}
+
+@keyframes bob{50%{transform:translateY(-10px)}}
+@keyframes stamp{to{opacity:.9;transform:scale(1)}}
+@keyframes shake{20%,60%{transform:translateX(-14px)}40%,80%{transform:translateX(14px)}}
+@keyframes glow{50%{box-shadow:0 0 0 10px #ffe066, var(--shadow);transform:scale(1.04)}}
+@keyframes pop{from{transform:scale(0)}}
+@keyframes fall{to{transform:translateY(115vh) rotate(540deg)}}
+@media (prefers-reduced-motion:reduce){*{animation-duration:.01s!important;animation-iteration-count:1!important}}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <symbol id="i-box" viewBox="0 0 100 100"><path d="M50 12 88 30 50 48 12 30Z" fill="#ffc48a"/><path d="M12 30 50 48v42L12 72Z" fill="#ff9f43"/><path d="M88 30 50 48v42l38-18Z" fill="#e07f22"/><path d="M50 12 88 30v42L50 90 12 72V30Z M12 30 50 48 88 30M50 48v42" fill="none" stroke="#7a4210" stroke-width="3" stroke-linejoin="round"/></symbol>
+    <symbol id="i-cyl" viewBox="0 0 100 100"><path d="M20 22v56a30 11 0 0 0 60 0V22Z" fill="#3d9be9"/><path d="M20 22v56a30 11 0 0 0 30 11V22Z" fill="#6cb5f0"/><ellipse cx="50" cy="22" rx="30" ry="11" fill="#a8d4f7"/><path d="M20 22v56a30 11 0 0 0 60 0V22" fill="none" stroke="#1a5a92" stroke-width="3"/><ellipse cx="50" cy="22" rx="30" ry="11" fill="none" stroke="#1a5a92" stroke-width="3"/></symbol>
+    <symbol id="i-ball" viewBox="0 0 100 100"><defs><radialGradient id="gb" cx=".35" cy=".32" r=".75"><stop offset="0" stop-color="#b8f5d0"/><stop offset=".45" stop-color="#2ecc71"/><stop offset="1" stop-color="#178a48"/></radialGradient></defs><circle cx="50" cy="52" r="38" fill="url(#gb)" stroke="#11663a" stroke-width="3"/></symbol>
+  </defs>
+</svg>
+
+<!-- 첫 화면 -->
+<section id="home" class="screen on">
+  <div class="shapes-row" aria-hidden="true">
+    <svg viewBox="0 0 100 100"><use href="#i-box"/></svg>
+    <svg viewBox="0 0 100 100"><use href="#i-cyl"/></svg>
+    <svg viewBox="0 0 100 100"><use href="#i-ball"/></svg>
+  </div>
+  <h1><span>모양</span> <span>놀</span><span>이터</span></h1>
+  <p>상자 모양 · 둥근 기둥 모양 · 공 모양</p>
+  <div class="modes">
+    <button class="mode find" data-go="find">🔍 모양 찾기<small>3학년 · 말하는 모양을 찾아요</small></button>
+    <button class="mode sort" data-go="sort">🧺 모양 바구니<small>4학년 · 같은 모양끼리 넣어요</small></button>
+  </div>
+</section>
+
+<!-- 모양 찾기 -->
+<section id="find" class="screen">
+  <div class="bar">
+    <button class="round" data-home aria-label="처음으로">🏠</button>
+    <div class="stars" id="fStars"></div>
+    <button class="round" data-replay aria-label="다시 듣기">🔊</button>
+  </div>
+  <div class="prompt" id="fPrompt"></div>
+  <div class="grid" id="fGrid"></div>
+</section>
+
+<!-- 모양 바구니 -->
+<section id="sort" class="screen">
+  <div class="bar">
+    <button class="round" data-home aria-label="처음으로">🏠</button>
+    <div class="stars" id="sStars"></div>
+    <button class="round" data-replay aria-label="다시 듣기">🔊</button>
+  </div>
+  <div class="stage">
+    <div class="prompt" style="margin-bottom:0">어떤 모양일까요?</div>
+    <div class="item" id="sItem"><div class="em"></div><div class="nm"></div></div>
+    <p class="hint">그림을 바구니로 끌어 넣거나, 바구니를 눌러요</p>
+    <div class="baskets">
+      <button class="basket" data-s="box"><svg viewBox="0 0 100 100"><use href="#i-box"/></svg><span class="lb">상자 모양</span><span class="in"></span></button>
+      <button class="basket" data-s="cyl"><svg viewBox="0 0 100 100"><use href="#i-cyl"/></svg><span class="lb">둥근 기둥 모양</span><span class="in"></span></button>
+      <button class="basket" data-s="ball"><svg viewBox="0 0 100 100"><use href="#i-ball"/></svg><span class="lb">공 모양</span><span class="in"></span></button>
+    </div>
+  </div>
+</section>
+
+<!-- 끝 -->
+<section id="end" class="screen">
+  <div class="big">🌟</div>
+  <h2>모두 다 했어요!</h2>
+  <div class="modes">
+    <button class="mode" id="again">🔁 한 번 더</button>
+    <button class="mode" data-home>🏠 처음으로</button>
+  </div>
+</section>
+
+<script>
+const SHAPES = {box:"상자 모양", cyl:"둥근 기둥 모양", ball:"공 모양"};
+const ITEMS = [
+  ["gift","🎁","선물 상자","box"],["dice","🎲","주사위","box"],["parcel","📦","택배 상자","box"],
+  ["juice","🧃","주스 팩","box"],["brick","🧱","벽돌","box"],["book","📕","책","box"],["ice","🧊","얼음","box"],
+  ["can","🥫","통조림 캔","cyl"],["tissue","🧻","두루마리 휴지","cyl"],["drum","🥁","북","cyl"],
+  ["candle","🕯️","양초","cyl"],["battery","🔋","건전지","cyl"],
+  ["soccer","⚽","축구공","ball"],["basket","🏀","농구공","ball"],["orange","🍊","귤","ball"],
+  ["tennis","🎾","테니스공","ball"],["baseball","⚾","야구공","ball"],["marble","🔮","구슬","ball"]
+].map(([k,e,n,s])=>({k,e,n,s}));
+const FIND_ROUNDS = 9, SORT_ROUNDS = 12;
+const $ = s => document.querySelector(s);
+const shuffle = a => { a=[...a]; for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]];} return a; };
+const pick = a => a[Math.random()*a.length|0];
+const josa = (w,a,b) => ((w.charCodeAt(w.length-1)-0xAC00)%28 ? w+a : w+b);
+
+/* ---------- 소리 ---------- */
+// 대사: audio/*.mp3 (Microsoft 신경망 음성으로 미리 녹음). 파일이 없으면 브라우저 음성으로 대신 읽어요.
+let LINES = {};
+fetch("lines.json").then(r=>r.json()).then(j=>LINES=j).catch(()=>{});
+const cache = {};
+let queueId = 0, current = null, lastSay = [];
+function clip(k){ return cache[k] || (cache[k] = Object.assign(new Audio("audio/"+k+".mp3"),{preload:"auto"})); }
+function stopVoice(){ queueId++; if(current){current.pause();current.currentTime=0;current=null;} try{speechSynthesis.cancel()}catch(e){} }
+function playOne(k, id){
+  return new Promise(res=>{
+    if(id!==queueId) return res();
+    const a = clip(k); current = a; a.currentTime = 0;
+    const done = () => { a.onended=a.onerror=null; res(); };
+    a.onended = done;
+    a.onerror = () => { a.onerror=null; fallback(k).then(res); };
+    a.play().catch(() => fallback(k).then(res));
+  });
+}
+function fallback(k){
+  return new Promise(res=>{
+    const t = LINES[k]; if(!t || !window.speechSynthesis) return res();
+    const u = new SpeechSynthesisUtterance(t); u.lang="ko-KR"; u.rate=.9; u.onend=u.onerror=res;
+    speechSynthesis.speak(u);
+  });
+}
+async function say(keys, remember=false){
+  stopVoice(); const id = queueId;
+  if(remember) lastSay = keys;
+  for(const k of keys){ if(id!==queueId) return false; await playOne(k,id); }
+  return id===queueId;
+}
+document.addEventListener("click", e=>{ if(e.target.closest("[data-replay]")) say(lastSay); });
+
+let actx;
+function tone(seq){
+  try{
+    actx = actx || new (window.AudioContext||window.webkitAudioContext)();
+    let t = actx.currentTime;
+    for(const [f,d,type="sine",v=.18] of seq){
+      const o=actx.createOscillator(), g=actx.createGain();
+      o.type=type; o.frequency.value=f; g.gain.setValueAtTime(v,t); g.gain.exponentialRampToValueAtTime(.001,t+d);
+      o.connect(g).connect(actx.destination); o.start(t); o.stop(t+d); t+=d*.7;
+    }
+  }catch(e){}
+}
+const ding = () => tone([[784,.18],[1047,.35]]);
+const boop = () => tone([[260,.22,"triangle",.14],[220,.3,"triangle",.12]]);
+
+/* ---------- 화면 전환 ---------- */
+let mode = null;
+function show(id){ document.querySelectorAll(".screen").forEach(s=>s.classList.toggle("on", s.id===id)); }
+function goHome(){ stopVoice(); show("home"); say(["intro"], true); }
+document.addEventListener("click", e=>{
+  const go = e.target.closest("[data-go]"); if(go){ start(go.dataset.go); }
+  if(e.target.closest("[data-home]")) goHome();
+});
+$("#again").onclick = () => start(mode);
+function start(m){ mode = m; show(m); m==="find" ? findStart() : sortStart(); }
+function stars(el, n, got){ el.innerHTML = Array.from({length:n},(_,i)=>`<i class="${i<got?'got':''}">⭐</i>`).join(""); }
+const praise = () => pick(["good1","good2","good3","good4"]);
+
+function finish(){
+  show("end");
+  for(let i=0;i<36;i++){
+    const c=document.createElement("div"); c.className="confetti";
+    c.textContent = pick(["⭐","🎉","🟧","🔵","🟢","✨"]);
+    c.style.left = Math.random()*100+"vw"; c.style.fontSize = 18+Math.random()*26+"px";
+    c.style.animationDuration = 2.2+Math.random()*2.2+"s"; c.style.animationDelay = Math.random()*.8+"s";
+    document.body.appendChild(c); setTimeout(()=>c.remove(),5500);
+  }
+  tone([[523,.15],[659,.15],[784,.15],[1047,.5]]);
+  say(["end"], true);
+}
+
+/* ---------- 모양 찾기 (3학년) ---------- */
+let F;
+function findStart(){
+  const targets = shuffle(Array.from({length:FIND_ROUNDS},(_,i)=>["box","cyl","ball"][i%3]));
+  F = {targets, r:0, used:new Set()};
+  say(["find_intro"]).then(ok=>ok && say(lastSay, true));
+  findRound(true);
+}
+function findRound(silent){
+  const s = F.targets[F.r];
+  stars($("#fStars"), FIND_ROUNDS, F.r);
+  $("#fPrompt").innerHTML = `<b class="c-${s}">${SHAPES[s]}</b>${josa(SHAPES[s],"을","를").slice(-1)} 찾아 보세요!`;
+  let pool = ITEMS.filter(i=>i.s===s && !F.used.has(i.k)); if(!pool.length) pool = ITEMS.filter(i=>i.s===s);
+  const ans = pick(pool); F.used.add(ans.k);
+  const others = shuffle(ITEMS.filter(i=>i.s!==s)).slice(0,3);
+  F.ans = ans; F.miss = 0; F.lock = false;
+  const g = $("#fGrid"); g.innerHTML = "";
+  for(const it of shuffle([ans,...others])){
+    const b = document.createElement("button"); b.className="pick"; b.dataset.k = it.k;
+    b.innerHTML = `<span class="em">${it.e}</span><span class="nm">${it.n}</span><span class="mark"></span>`;
+    b.onclick = () => findTap(b, it);
+    g.appendChild(b);
+  }
+  if(!silent) say(["find_"+s], true); else lastSay = ["find_"+s];
+}
+async function findTap(b, it){
+  if(F.lock) return;
+  if(it.s === F.ans.s){
+    F.lock = true; b.classList.add("right");
+    document.querySelectorAll(".pick").forEach(x=>x!==b && x.classList.add("dim"));
+    ding(); F.r++; stars($("#fStars"), FIND_ROUNDS, F.r);
+    const ok = await say([praise(), "a_"+it.k]);
+    if(!ok) return;
+    await new Promise(r=>setTimeout(r,500));
+    if(mode!=="find" || !$("#find").classList.contains("on")) return;
+    F.r>=FIND_ROUNDS ? finish() : findRound();
+  }else{
+    F.miss++; boop(); b.classList.remove("shake"); void b.offsetWidth; b.classList.add("shake");
+    if(F.miss>=2){
+      document.querySelector(`.pick[data-k="${F.ans.k}"]`).classList.add("glow");
+      say(["wrong3"]);
+    }else say([pick(["wrong1","wrong2"]), "find_"+F.ans.s]);
+  }
+}
+
+/* ---------- 모양 바구니 (4학년) ---------- */
+let S;
+const item = $("#sItem");
+function sortStart(){
+  const per = SORT_ROUNDS/3;
+  const list = shuffle([].concat(...["box","cyl","ball"].map(s=>shuffle(ITEMS.filter(i=>i.s===s)).slice(0,per))));
+  S = {list, r:0, featSaid:new Set()};
+  document.querySelectorAll(".basket .in").forEach(x=>x.textContent="");
+  say(["sort_intro"]).then(ok=>ok && say(lastSay, true));
+  sortRound(true);
+}
+function sortRound(silent){
+  const it = S.list[S.r]; S.cur = it; S.miss = 0; S.lock = false;
+  stars($("#sStars"), SORT_ROUNDS, S.r);
+  item.querySelector(".em").textContent = it.e; item.querySelector(".nm").textContent = it.n;
+  item.style.transform = ""; item.style.opacity = 1; item.className = "item"; item.dataset.dx = item.dataset.dy = 0;
+  document.querySelectorAll(".basket").forEach(b=>b.classList.remove("glow","over"));
+  if(!silent) say(["q_"+it.k], true); else lastSay = ["q_"+it.k];
+}
+async function sortDrop(basket){
+  if(S.lock) return;
+  const it = S.cur, s = basket.dataset.s;
+  if(s === it.s){
+    S.lock = true; ding();
+    const br = basket.getBoundingClientRect(), ir = item.getBoundingClientRect();
+    item.className = "item back";
+    item.style.transform = `translate(${br.left+br.width/2-(ir.left+ir.width/2)+(parseFloat(item.dataset.dx)||0)}px,${br.top+br.height/2-(ir.top+ir.height/2)+(parseFloat(item.dataset.dy)||0)}px) scale(.2)`;
+    item.style.opacity = 0;
+    setTimeout(()=>{ basket.querySelector(".in").textContent += it.e; }, 280);
+    S.r++; stars($("#sStars"), SORT_ROUNDS, S.r);
+    const keys = [praise(), "a_"+it.k];
+    if(!S.featSaid.has(s)){ S.featSaid.add(s); keys.push("feat_"+s); }
+    const ok = await say(keys);
+    if(!ok) return;
+    await new Promise(r=>setTimeout(r,400));
+    if(mode!=="sort" || !$("#sort").classList.contains("on")) return;
+    S.r>=SORT_ROUNDS ? finish() : sortRound();
+  }else{
+    S.miss++; boop(); resetItem();
+    basket.classList.remove("shake"); void basket.offsetWidth; basket.classList.add("shake");
+    if(S.miss>=2){
+      document.querySelector(`.basket[data-s="${it.s}"]`).classList.add("glow");
+      say(["wrong3"]);
+    }else say([pick(["wrong1","wrong2"]), "q_"+it.k]);
+  }
+}
+function resetItem(){ item.className="item back"; item.style.transform=""; item.dataset.dx=item.dataset.dy=0; }
+document.querySelectorAll(".basket").forEach(b=>b.addEventListener("click", ()=>sortDrop(b)));
+
+// 끌어 넣기
+let drag = null;
+item.addEventListener("pointerdown", e=>{
+  if(S && S.lock) return;
+  drag = {x:e.clientX, y:e.clientY, id:e.pointerId}; item.setPointerCapture(e.pointerId); item.className="item drag";
+});
+item.addEventListener("pointermove", e=>{
+  if(!drag) return;
+  const dx=e.clientX-drag.x, dy=e.clientY-drag.y; item.dataset.dx=dx; item.dataset.dy=dy;
+  item.style.transform = `translate(${dx}px,${dy}px) scale(1.05)`;
+  const over = basketAt(e.clientX,e.clientY);
+  document.querySelectorAll(".basket").forEach(b=>b.classList.toggle("over", b===over));
+});
+item.addEventListener("pointerup", e=>{
+  if(!drag) return; drag = null;
+  document.querySelectorAll(".basket").forEach(b=>b.classList.remove("over"));
+  const b = basketAt(e.clientX,e.clientY);
+  if(b) sortDrop(b); else { resetItem(); say(lastSay); }
+});
+item.addEventListener("pointercancel", ()=>{ drag=null; resetItem(); });
+function basketAt(x,y){
+  return [...document.querySelectorAll(".basket")].find(b=>{const r=b.getBoundingClientRect();return x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom;});
+}
+
+// 첫 터치에서 소리 준비 + 인사
+let greeted = false;
+document.addEventListener("pointerdown", e=>{
+  if(greeted) return; greeted = true;
+  if(e.target.closest(".mode")) return;
+  if(!$("#home").classList.contains("on")) return;
+  say(["intro"], true);
+}, {once:false, capture:true});
+// 미리 불러오기
+setTimeout(()=>{ ["intro","find_intro","sort_intro","good1","good2","good3","good4","wrong1","wrong2","wrong3"].forEach(clip); }, 300);
+</script>
+</body>
+</html>
